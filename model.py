@@ -5,9 +5,9 @@ def apply_normalization(chennels):
   return nn.BatchNorm2d(chennels)
 
 
-class Net(nn.Module):
+class CustomResnet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(CustomResnet, self).__init__()
         # Input Block
         drop = 0.0
         # PrepLayer - Conv 3x3 s1, p1) >> BN >> RELU [64k]

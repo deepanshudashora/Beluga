@@ -3,8 +3,8 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from torchvision import transforms
 import numpy as np
-from src.train import train
-from src.test import test
+from Beluga.train import train
+from Beluga.test import test
 from torchvision import datasets
 # Data to plot accuracy and loss graphs
 
