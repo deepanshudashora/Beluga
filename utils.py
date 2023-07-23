@@ -76,7 +76,7 @@ def show_random_results(test_loader,grid_size,model,device):
   plt.show()
 
 
-def plot_misclassified(model, test_loader,test_data, device,mean,std,no_misclf=20, title='Misclassified'):
+def plot_misclassified(model, test_loader,test_data, device,mean,std,grid_size,no_misclf=20, title='Misclassified'):
   count = 0
   k = 30
   misclf = list()
@@ -95,7 +95,8 @@ def plot_misclassified(model, test_loader,test_data, device,mean,std,no_misclf=2
       misclf.append((img, label, pred))
       count += 1
   
-  rows, cols = int(no_misclf/4),4
+  
+  rows, cols = grid_size[0], grid_size[1]
   figure = plt.figure(figsize=(10,14))
 
   for i in range(1, cols * rows + 1):
