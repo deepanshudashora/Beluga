@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 from torchvision import datasets
 from torch_lr_finder import LRFinder
-from gradcam_utils import GradCAM
+from custom_models.gradcam_utils import GradCAM
 # Data to plot accuracy and loss graphs
 
 import os
