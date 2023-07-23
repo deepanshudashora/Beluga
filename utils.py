@@ -3,9 +3,10 @@ import torch.optim as optim
 import matplotlib.pyplot as plt
 from torchvision import transforms
 import numpy as np
-
+import cv2
 from torchvision import datasets
 from torch_lr_finder import LRFinder
+from gradcam_utils import GradCAM
 # Data to plot accuracy and loss graphs
 
 import os
@@ -18,6 +19,16 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.DEBUG)
 
 test_incorrect_pred = {'images': [], 'ground_truths': [], 'predicted_vals': []}
+
+
+def unnormalize(img,mean,std):
+    img = img.cpu().numpy().astype(dtype=np.float32)
+  
+    for i in range(img.shape[0]):
+        img[i] = (img[i]*std[i])+mean[i]
+    
+    return np.transpose(img, (1,2,0))
+
 
 def implement_onecycle_policy(model_class,configuration,device,train_loader):
     learning_rate = configuration.get('learning_rate')
@@ -99,6 +110,7 @@ def plot_misclassified(model, test_loader,test_data, device,mean,std,no_misclf=2
     plt.imshow(img, cmap="gray") # showing the plot
 
   plt.show()
+  return misclf
 
 
 # For calculating accuracy per class
@@ -133,3 +145,80 @@ def calculate_accuracy_per_class(model,device,test_loader,test_data):
   plt.xlabel('classes')
   plt.ylabel('accuracy')
   plt.show()
+  
+def generate_gradcam(misclassified_images, model, target_layers,device):
+    images=[]
+    labels=[]
+    for i, (img, pred, correct) in enumerate(misclassified_images):
+        images.append(img)
+        labels.append(correct)
+    
+    model.eval()
+    
+    # map input to device
+    images = torch.stack(images).to(device)
+    
+    # set up grad cam
+    gcam = GradCAM(model, target_layers)
+    
+    # forward pass
+    probs, ids = gcam.forward(images)
+    
+    # outputs agaist which to compute gradients
+    ids_ = torch.LongTensor(labels).view(len(images),-1).to(device)
+    
+    # backward pass
+    gcam.backward(ids=ids_)
+    layers = []
+    for i in range(len(target_layers)):
+        target_layer = target_layers[i]
+        print("Generating Grad-CAM @{}".format(target_layer))
+        # Grad-CAM
+        layers.append(gcam.generate(target_layer=target_layer))
+        
+    # remove hooks when done
+    gcam.remove_hook()
+    return layers, probs, ids
+
+def plot_gradcam(gcam_layers, target_layers, class_names, image_size,predicted, misclassified_images,mean,std):
+    
+    images=[]
+    labels=[]
+    for i, (img, pred, correct) in enumerate(misclassified_images):
+      images.append(img)
+      labels.append(correct)
+
+    c = len(images)+1
+    r = len(target_layers)+2
+    fig = plt.figure(figsize=(30,14))
+    fig.subplots_adjust(hspace=0.01, wspace=0.01)
+    ax = plt.subplot(r, c, 1)
+    ax.text(0.3,-0.5, "INPUT", fontsize=14)
+    plt.axis('off')
+    for i in range(len(target_layers)):
+      target_layer = target_layers[i]
+      ax = plt.subplot(r, c, c*(i+1)+1)
+      ax.text(0.3,-0.5, target_layer, fontsize=14)
+      plt.axis('off')
+
+      for j in range(len(images)):
+        img = np.uint8(255*unnormalize(images[j].view(image_size),mean,std))
+        if i==0:
+          ax = plt.subplot(r, c, j+2)
+          ax.text(0, 0.2, f"actual: {class_names[labels[j]]} \npredicted: {class_names[predicted[j][0]]}", fontsize=12)
+          plt.axis('off')
+          plt.subplot(r, c, c+j+2)
+          plt.imshow(img)
+          plt.axis('off')
+          
+        
+        heatmap = 1-gcam_layers[i][j].cpu().numpy()[0] # reverse the color map
+        heatmap = np.uint8(255 * heatmap)
+        heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+        superimposed_img = cv2.resize(cv2.addWeighted(img, 0.5, heatmap, 0.5, 0), (128,128))
+        plt.subplot(r, c, (i+2)*c+j+2)
+        plt.imshow(superimposed_img, interpolation='bilinear')
+        
+        plt.axis('off')
+    plt.show()
+  
