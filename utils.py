@@ -114,6 +114,45 @@ def plot_misclassified(model, test_loader,test_data, device,mean,std,grid_size,n
   return misclf
 
 
+def plot_trueclassified(model, test_loader,test_data, device,mean,std,grid_size,no_clf=20, title='Misclassified'):
+  count = 0
+  k = 30
+  clf = list()
+  classes = test_data.classes
+  
+  while count<=no_clf:
+    img, label = test_loader.dataset[k]
+    pred = model(img.unsqueeze(0).to(device)) # Prediction
+    # pred = model(img.unsqueeze(0).to(device)) # Prediction
+    pred = pred.argmax().item()
+
+    k += 1
+    if pred==label:
+      denormalize = transforms.Normalize((-1 * mean / std), (1.0 / std))
+      img = denormalize(img)
+      clf.append((img, label, pred))
+      count += 1
+  
+  
+  rows, cols = grid_size[0], grid_size[1]
+  figure = plt.figure(figsize=(10,14))
+
+  for i in range(1, cols * rows + 1):
+    img, label, pred = clf[i-1]
+
+    figure.add_subplot(rows, cols, i) # adding sub plot
+    plt.suptitle(title, fontsize=10)
+    plt.title(f"Pred label: {classes[pred]}\n True label: {classes[label]}") # title of plot
+    plt.axis("off") # hiding the axis
+    img = img.squeeze().numpy()
+    img = np.transpose(img, (1, 2, 0))
+    plt.imshow(img, cmap="gray") # showing the plot
+
+  plt.show()
+  return clf
+
+
+
 # For calculating accuracy per class
 def calculate_accuracy_per_class(model,device,test_loader,test_data):  
   model = model.to(device)
