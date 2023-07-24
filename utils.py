@@ -222,43 +222,42 @@ def generate_gradcam(misclassified_images, model, target_layers,device):
 
 def plot_gradcam(gcam_layers, target_layers, class_names, image_size,predicted, misclassified_images,mean,std):
     
-    images=[]
-    labels=[]
-    for i, (img, pred, correct) in enumerate(misclassified_images):
-      images.append(img)
-      labels.append(correct)
+  images=[]
+  labels=[]
+  for i, (img, pred, correct) in enumerate(misclassified_images):
+    images.append(img)
+    labels.append(correct)
 
-    c = len(images)+1
-    r = len(target_layers)+2
-    fig = plt.figure(figsize=(30,14))
-    fig.subplots_adjust(hspace=0.01, wspace=0.01)
-    ax = plt.subplot(r, c, 1)
-    ax.text(0.3,-0.5, "INPUT", fontsize=14)
+  c = len(images)+1
+  r = len(target_layers)+2
+  fig = plt.figure(figsize=(40,20))
+  fig.subplots_adjust(hspace=0.02, wspace=0.02)
+  ax = plt.subplot(r, c, 1)
+  ax.text(0.3,-0.5, "INPUT", fontsize=14)
+  plt.axis('off')
+  for i in range(len(target_layers)):
+    target_layer = target_layers[i]
+    ax = plt.subplot(r, c, c*(i+1)+1)
+    ax.text(0.3,-0.5, target_layer, fontsize=14)
     plt.axis('off')
-    for i in range(len(target_layers)):
-      target_layer = target_layers[i]
-      ax = plt.subplot(r, c, c*(i+1)+1)
-      ax.text(0.3,-0.5, target_layer, fontsize=14)
-      plt.axis('off')
 
-      for j in range(len(images)):
-        img = np.uint8(255*unnormalize(images[j].view(image_size),mean,std))
-        if i==0:
-          ax = plt.subplot(r, c, j+2)
-          ax.text(0, 0.2, f"actual: {class_names[labels[j]]} \npredicted: {class_names[predicted[j][0]]}", fontsize=12)
-          plt.axis('off')
-          plt.subplot(r, c, c+j+2)
-          plt.imshow(img)
-          plt.axis('off')
-          
-        
-        heatmap = 1-gcam_layers[i][j].cpu().numpy()[0] # reverse the color map
-        heatmap = np.uint8(255 * heatmap)
-        heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        superimposed_img = cv2.resize(cv2.addWeighted(img, 0.5, heatmap, 0.5, 0), (128,128))
-        plt.subplot(r, c, (i+2)*c+j+2)
-        plt.imshow(superimposed_img, interpolation='bilinear')
-        
+    for j in range(len(images)):
+      img = np.uint8(255*unnormalize(images[j].view(image_size),mean,std))
+      if i==0:
+        ax = plt.subplot(r, c, j+2)
+        ax.text(0, 0.4, f"actual: {class_names[labels[j]]} \npredicted: {class_names[predicted[j][0]]}", fontsize=12)
         plt.axis('off')
-    plt.show()
-  
+        plt.subplot(r, c, c+j+2)
+        plt.imshow(img)
+        plt.axis('off')
+
+
+      heatmap = 1-gcam_layers[i][j].cpu().numpy()[0] # reverse the color map
+      heatmap = np.uint8(255 * heatmap)
+      heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+      superimposed_img = cv2.resize(cv2.addWeighted(img, 0.5, heatmap, 0.5, 0), (128,128))
+      plt.subplot(r, c, (i+2)*c+j+2)
+      plt.imshow(superimposed_img, interpolation='bilinear')
+
+      plt.axis('off')
+  plt.show()
