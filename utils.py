@@ -8,7 +8,7 @@ from torchvision import datasets
 from torch_lr_finder import LRFinder
 from custom_models.gradcam_utils import GradCAM
 # Data to plot accuracy and loss graphs
-
+import uuid 
 import os
 os.makedirs("logs/", exist_ok=True)
 
@@ -108,11 +108,12 @@ def plot_misclassified(model, test_loader,test_data, device,mean,std,grid_size,n
     plt.axis("off") # hiding the axis
     img = img.squeeze().numpy()
     img = np.transpose(img, (1, 2, 0))
+    name = str(uuid.uuid4())
+    cv2.imwrite(f"missclassified/missclassified_image_{label}_{name}.png",img)
     plt.imshow(img, cmap="gray") # showing the plot
 
   plt.show()
   return misclf
-
 
 def plot_trueclassified(model, test_loader,test_data, device,mean,std,grid_size,no_clf=20, title='Misclassified'):
   count = 0
