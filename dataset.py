@@ -18,15 +18,14 @@ logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.DEBUG)
 
 class CIFARDataModule(pytorch_lightning.LightningDataModule):
-
-  def __init__(self,mean,std,train,test):
-      self.mean = mean
-      self.std = std
-      self.train = train
-      self.test = test
+  def __init__(self,mean,std):
+    super().__init__()
+    self.mean = mean
+    self.std = std
 
   def setup(self, stage):
     # transforms for images
+
     train_transforms = A.Compose(
         [
           A.Normalize(self.mean, self.std),
@@ -51,6 +50,22 @@ class CIFARDataModule(pytorch_lightning.LightningDataModule):
                                             download=True, transform=train_transforms)
     self.test = Cifar10SearchDataset(root='./data', train=False,
                                           download=True, transform=test_transforms)
+
+  def train_dataloader(self):
+    # dataloader arguments - something you'll fetch these from cmdprmt
+    dataloader_args = dict(shuffle=True, batch_size=512, num_workers=0, pin_memory=True)
+
+    # train dataloader
+    train_loader = torch.utils.data.DataLoader(self.train, **dataloader_args)
+    return train_loader
+
+
+
+  def val_dataloader(self):
+    # test dataloader
+    dataloader_args = dict(shuffle=True, batch_size=512, num_workers=0, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(self.test, **dataloader_args)
+    return test_loader
 
   def train_dataloader(self):
     # dataloader arguments - something you'll fetch these from cmdprmt

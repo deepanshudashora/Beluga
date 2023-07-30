@@ -10,20 +10,25 @@ import pandas as pd
 from IPython.core.display import display
 import seaborn as sn
 
-def make_trainer():
-    tb_logger = pl_loggers.TensorBoardLogger('tf_logs/')
-    csv_logger = CSVLogger(save_dir="csv_logs/")
+def make_trainer(max_epochs,mean,std,refresh_rate=10,accelerator="auto",
+            tensorboard_logs = "tf_logs/",
+            csv_logs = "csv+logs/"
+            ):
+    tb_logger = pl_loggers.TensorBoardLogger(tensorboard_logs)
+    csv_logger = CSVLogger(save_dir=csv_logs)
 
     model = CustomResnetModule()
-    data_module = CIFARDataModule()
+    data_module = CIFARDataModule(mean,std)
     trainer = Trainer(
-        max_epochs=2,
-        accelerator="auto",
+        max_epochs=max_epochs,
+        accelerator=accelerator,
         devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
         logger=[tb_logger, csv_logger],
-        callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=10)],
+        callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=refresh_rate)],
     )
-    
+
+    trainer.fit(model,data_module)
+
     return trainer
 
 def evaluate_performace(csv_log_file_path):
