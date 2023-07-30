@@ -10,6 +10,7 @@ from pytorch_lightning import Trainer
 import pandas as pd 
 from IPython.core.display import display
 import seaborn as sn
+import os 
 
 def make_trainer(max_epochs,train_loader,test_loader,max_lr,
                  learning_rate=0.01,weight_decay=1e-4,
@@ -44,10 +45,21 @@ def evaluate_performace(csv_log_file_path):
     display(metrics.dropna(axis=1, how="all").head())
     sn.relplot(data=metrics, kind="line")
     
-def save_checkpoints(trainer):
+def save_checkpoints(path="/content/tf_logs/lightning_logs/"):
+  versions = os.listdir(path)
+  versionid = []
+  for i in versions:
+    versionid.append(int(i.replace("version_","")))
+
+  best_weight_folder = os.path.join(path,f"version_{max(versionid)}","checkpoints")
+  weights = os.listdir(best_weight_folder)[0]
+
+  weights_path = os.path.join(best_weight_folder,weights)
+
+  print(weights_path)
   device = torch.device("cpu")
-  trainer.save_checkpoint("best.ckpt")
-  best_model = torch.load("best.ckpt")
+  # trainer.save_checkpoint("best.ckpt")
+  best_model = torch.load(weights_path)
   torch.save(best_model['state_dict'], f'best_model.pth')
   litemodel = CustomResnet()
   litemodel.load_state_dict(torch.load("best_model.pth",map_location='cpu'))
