@@ -4,6 +4,7 @@ from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from custom_models.dataset import CIFARDataModule
 from custom_models.lightning_playground.modules.custom_resnet import CustomResnetModule
 from pytorch_lightning.loggers import CSVLogger
+from custom_models.custom_resnet import CustomResnet
 import torch 
 from pytorch_lightning import Trainer
 import pandas as pd 
@@ -37,3 +38,13 @@ def evaluate_performace(csv_log_file_path):
     metrics.set_index("epoch", inplace=True)
     display(metrics.dropna(axis=1, how="all").head())
     sn.relplot(data=metrics, kind="line")
+    
+def save_checkpoints(trainer):
+  device = torch.device("cpu")
+  trainer.save_checkpoint("best.ckpt")
+  best_model = torch.load("best.ckpt")
+  torch.save(best_model['state_dict'], f'best_model.pth')
+  litemodel = CustomResnet()
+  litemodel.load_state_dict(torch.load("best_model.pth",map_location='cpu'))
+  device = "cpu"
+  return litemodel,"best_model.pth"
