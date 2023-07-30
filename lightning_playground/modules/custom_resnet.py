@@ -9,7 +9,7 @@ def apply_normalization(chennels):
 
 
 class CustomResnetModule(LightningModule):
-    def __init__(self,max_lr,steps_per_epoch,epochs,pct_start):
+    def __init__(self,max_lr,learning_rate,weight_decay,steps_per_epoch,pct_start,epochs):
         super().__init__()
         # Input Block
         drop = 0.0
@@ -17,6 +17,8 @@ class CustomResnetModule(LightningModule):
         self.steps_per_epoch=steps_per_epoch
         self.epochs=epochs
         self.pct_start=pct_start
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
 
         # PrepLayer - Conv 3x3 s1, p1) >> BN >> RELU [64k]
         self.preplayer = nn.Sequential(
@@ -120,8 +122,8 @@ class CustomResnetModule(LightningModule):
 
     def configure_optimizers(self):
       optimizer =  torch.optim.Adam(self.parameters(), 
-                          lr=0.01, 
-                          weight_decay=1e-4)
+                          lr=self.learning_rate, 
+                          weight_decay=self.weight_decay)
       scheduler_dict = {
             "scheduler": torch.optim.lr_scheduler.OneCycleLR(
                 optimizer,

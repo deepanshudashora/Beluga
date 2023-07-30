@@ -11,14 +11,21 @@ import pandas as pd
 from IPython.core.display import display
 import seaborn as sn
 
-def make_trainer(max_epochs,train_loader,test_loader,max_lr,refresh_rate=10,accelerator="auto",
-            tensorboard_logs = "tf_logs/",
-            csv_logs = "csv+logs/"
+def make_trainer(max_epochs,train_loader,test_loader,max_lr,
+                 learning_rate=0.01,weight_decay=1e-4,
+                 refresh_rate=10,accelerator="auto",
+                 tensorboard_logs = "tf_logs/",
+                 csv_logs = "csv+logs/"
             ):
     tb_logger = pl_loggers.TensorBoardLogger(tensorboard_logs)
     csv_logger = CSVLogger(save_dir=csv_logs)
 
-    model = CustomResnetModule(max_lr,max_epochs,steps_per_epoch=len(train_loader),pct_start=5/max_epochs)
+    model = CustomResnetModule(max_lr,
+                               learning_rate,
+                               weight_decay,
+                               steps_per_epoch=len(train_loader),
+                               pct_start=5/max_epochs,
+                               epochs=max_epochs)
     data_module = CIFARDataModule(train_loader,test_loader)
     trainer = Trainer(
         max_epochs=max_epochs,
