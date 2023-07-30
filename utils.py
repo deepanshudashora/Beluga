@@ -81,7 +81,7 @@ def plot_misclassified(model, test_loader,test_data, device,mean,std,grid_size,n
   k = 30
   misclf = list()
   classes = test_data.classes
-  
+  os.makedirs("missclassified_images/", exist_ok=True)
   while count<=no_misclf:
     img, label = test_loader.dataset[k]
     pred = model(img.unsqueeze(0).to(device)) # Prediction
@@ -109,7 +109,7 @@ def plot_misclassified(model, test_loader,test_data, device,mean,std,grid_size,n
     img = img.squeeze().numpy()
     img = np.transpose(img, (1, 2, 0))
     name = str(uuid.uuid4())
-    cv2.imwrite(f"missclassified/missclassified_image_{label}_{name}.png",img)
+    cv2.imwrite(f"missclassified_images/missclassified_image_{label}_{name}.png",img)
     plt.imshow(img, cmap="gray") # showing the plot
 
   plt.show()
