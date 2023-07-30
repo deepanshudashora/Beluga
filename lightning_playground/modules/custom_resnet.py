@@ -9,10 +9,14 @@ def apply_normalization(chennels):
 
 
 class CustomResnetModule(LightningModule):
-    def __init__(self):
+    def __init__(self,max_lr,steps_per_epoch,epochs,pct_start):
         super().__init__()
         # Input Block
         drop = 0.0
+        self.max_lr = max_lr
+        self.steps_per_epoch=steps_per_epoch
+        self.epochs=epochs
+        self.pct_start=pct_start
 
         # PrepLayer - Conv 3x3 s1, p1) >> BN >> RELU [64k]
         self.preplayer = nn.Sequential(
@@ -121,10 +125,10 @@ class CustomResnetModule(LightningModule):
       scheduler_dict = {
             "scheduler": torch.optim.lr_scheduler.OneCycleLR(
                 optimizer,
-                max_lr=1.87E-02,
-                steps_per_epoch=98,
-                epochs=2,
-                pct_start=1/2,
+                max_lr=self.max_lr,
+                steps_per_epoch=self.steps_per_epoch,
+                epochs=self.epochs,
+                pct_start=self.pct_start,
                 div_factor=100,
                 three_phase=False,
                 final_div_factor=100,

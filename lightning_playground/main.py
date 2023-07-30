@@ -11,14 +11,14 @@ import pandas as pd
 from IPython.core.display import display
 import seaborn as sn
 
-def make_trainer(max_epochs,train_loader,test_loader,refresh_rate=10,accelerator="auto",
+def make_trainer(max_epochs,train_loader,test_loader,max_lr,refresh_rate=10,accelerator="auto",
             tensorboard_logs = "tf_logs/",
             csv_logs = "csv+logs/"
             ):
     tb_logger = pl_loggers.TensorBoardLogger(tensorboard_logs)
     csv_logger = CSVLogger(save_dir=csv_logs)
 
-    model = CustomResnetModule()
+    model = CustomResnetModule(max_lr,max_epochs,steps_per_epoch=len(train_loader),pct_start=5/max_epochs)
     data_module = CIFARDataModule(train_loader,test_loader)
     trainer = Trainer(
         max_epochs=max_epochs,
@@ -27,9 +27,7 @@ def make_trainer(max_epochs,train_loader,test_loader,refresh_rate=10,accelerator
         logger=[tb_logger, csv_logger],
         callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=refresh_rate)],
     )
-
     trainer.fit(model,data_module)
-
     return trainer
 
 def evaluate_performace(csv_log_file_path):
