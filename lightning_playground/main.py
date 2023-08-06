@@ -12,6 +12,8 @@ from IPython.core.display import display
 import seaborn as sn
 import os 
 
+
+
 def make_trainer(max_epochs,train_loader,test_loader,max_lr,
                  learning_rate=0.01,weight_decay=1e-4,
                  refresh_rate=10,accelerator="auto",
