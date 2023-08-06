@@ -10,7 +10,7 @@ from pytorch_lightning import Trainer
 import pandas as pd 
 from IPython.core.display import display
 import seaborn as sn
-from dataset import YOLODataModule
+from custom_models.YOLOv3.dataset import YOLODataModule
 import os 
 
 def check_accuracy(x,y,model,threshold,device):        
