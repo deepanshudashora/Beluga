@@ -8,10 +8,38 @@ from pytorch_lightning.callbacks.progress import TQDMProgressBar
 from pytorch_lightning.loggers import CSVLogger
 from pytorch_lightning import Trainer
 import pandas as pd 
+from custom_models.YOLOv3.loss import YoloLoss
 from IPython.core.display import display
 import seaborn as sn
+from custom_models.YOLOv3.model import YOLOv3
 from custom_models.YOLOv3.dataset import YOLODataModule
 import os 
+
+def check_accuracy(x,y,model,threshold,device):        
+    x = x.to(device)
+    with torch.no_grad():
+        out = model(x)
+    tot_class_preds, correct_class = 0, 0
+    tot_noobj, correct_noobj = 0, 0
+    tot_obj, correct_obj = 0, 0
+
+    for i in range(3):
+        y[i] = y[i].to(device)
+        obj = y[i][..., 0] == 1 # in paper this is Iobj_i
+        noobj = y[i][..., 0] == 0  # in paper this is Iobj_i
+
+        correct_class += torch.sum(
+            torch.argmax(out[i][..., 5:][obj], dim=-1) == y[i][..., 5][obj]
+        )
+        tot_class_preds += torch.sum(obj)
+
+        obj_preds = torch.sigmoid(out[i][..., 0]) > threshold
+        correct_obj += torch.sum(obj_preds[obj] == y[i][..., 0][obj])
+        tot_obj += torch.sum(obj)
+        correct_noobj += torch.sum(obj_preds[noobj] == y[i][..., 0][noobj])
+        tot_noobj += torch.sum(noobj)
+        
+
 
 def check_accuracy(x,y,model,threshold,device):        
     x = x.to(device)
@@ -94,11 +122,14 @@ class YOLOTraining(LightningModule):
                 + self.loss_fn(out[2], y2, self.scaled_anchors[2])
             )
             val_accuracy = check_accuracy(x,y,self.model,self.config.CONF_THRESHOLD,self.config.DEVICE)
-            clas_acc,no_obj_acc,obj_acc = val_accuracy[0],val_accuracy[1],val_accuracy[2]
-            self.log(f"{stage}_loss", loss, prog_bar=True)
-            self.log(f"{stage}_clasacc", clas_acc, prog_bar=True)
-            self.log(f"{stage}_no_obj_acc", no_obj_acc, prog_bar=True)
-            self.log(f"{stage}_obj_acc", obj_acc, prog_bar=True)
+            if val_accuracy!=None:
+                clas_acc,no_obj_acc,obj_acc = val_accuracy[0],val_accuracy[1],val_accuracy[2]
+                self.log(f"{stage}_loss", loss, prog_bar=True)
+                self.log(f"{stage}_clasacc", clas_acc, prog_bar=True)
+                self.log(f"{stage}_no_obj_acc", no_obj_acc, prog_bar=True)
+                self.log(f"{stage}_obj_acc", obj_acc, prog_bar=True)
+            else:
+                self.log(f"{stage}_loss", loss, prog_bar=True)
 
     def validation_step(self, batch, batch_idx):
         self.evaluate(batch, "val")
@@ -125,26 +156,24 @@ class YOLOTraining(LightningModule):
       return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
   
 def make_trainer(max_epochs,train_loader, test_loader, train_eval_loader,max_lr,
-                 learning_rate,weight_decay,check_val_every_n_epoch,
+                 learning_rate,weight_decay,check_val_every_n_epoch,config,precision=16,
                  refresh_rate=10,accelerator="auto",
                  tensorboard_logs = "tf_logs/",
                  csv_logs = "csv_training_logs/"
             ):
     tb_logger = pl_loggers.TensorBoardLogger(tensorboard_logs)
     csv_logger = CSVLogger(save_dir=csv_logs)
-
-    model = YOLOTraining(max_lr,
-                               learning_rate,
-                               weight_decay,
-                               steps_per_epoch=len(train_loader),
-                               pct_start=5/max_epochs,
-                               epochs=max_epochs)
+    #loss_fn,config,model,max_lr,train_loader,check_accuracy,pct_start
+    loss_fn = YoloLoss()
+    model = YOLOv3(num_classes=config.NUM_CLASSES).to(config.DEVICE)
+    model = YOLOTraining(loss_fn,config,model,max_lr,train_loader,check_accuracy,5/max_epochs)
     data_module = YOLODataModule(train_loader, test_loader, train_eval_loader)
     trainer = Trainer(
         max_epochs=max_epochs,
         accelerator=accelerator,
         devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
         logger=[tb_logger, csv_logger],
+        precision=precision,
         callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=refresh_rate)],
         check_val_every_n_epoch=check_val_every_n_epoch
     )

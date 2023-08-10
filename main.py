@@ -1,55 +1,69 @@
-import os
-os.makedirs("logs/", exist_ok=True)
-
-import logging
-logging.basicConfig(filename='logs/network.log', format='%(asctime)s: %(filename)s: %(message)s',
-                    level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.DEBUG)
-
-from custom_models.train import train
-from custom_models.test import test
-import torch.optim as optim
+from pytorch_lightning import loggers as pl_loggers
+from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.callbacks.progress import TQDMProgressBar
+from custom_models.dataset import CIFARDataModule
+from custom_models.lightning_playground.modules.custom_resnet import CustomResnetModule
+from pytorch_lightning.loggers import CSVLogger
+from custom_models.custom_resnet import CustomResnet
 import torch 
+from pytorch_lightning import Trainer
+import pandas as pd 
+from IPython.core.display import display
+import seaborn as sn
+import os 
 
 
-test_incorrect_pred = {'images': [], 'ground_truths': [], 'predicted_vals': []}
 
-def fit_model(model,training_parameters,train_loader,test_loader,device):
-    train_losses = []
-    test_losses = []
-    train_acc = []
-    test_acc = []
+def make_trainer(max_epochs,train_loader,test_loader,max_lr,
+                 learning_rate=0.01,weight_decay=1e-4,
+                 refresh_rate=10,accelerator="auto",
+                 tensorboard_logs = "tf_logs/",
+                 csv_logs = "csv+logs/"
+            ):
+    tb_logger = pl_loggers.TensorBoardLogger(tensorboard_logs)
+    csv_logger = CSVLogger(save_dir=csv_logs)
 
-    optimizer = optim.Adam(model.parameters(), 
-                          lr=training_parameters["learning_rate"], 
-                          weight_decay=training_parameters["weight_decay"])
-    scheduler = optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=training_parameters["max_lr"],
-        steps_per_epoch=len(train_loader),
-        epochs=training_parameters["num_epochs"],
-        pct_start=training_parameters["max_at"],
-        div_factor=100,
-        three_phase=False,
-        final_div_factor=100,
-        anneal_strategy='linear',verbose=False)
-    for epoch in range(1, training_parameters["num_epochs"]+1):
-        print(f'Epoch {epoch}')
-        train_losses,train_acc = train(model, device, train_loader, optimizer,scheduler,train_losses,train_acc)
-        test_losses,test_acc = test(model, device, test_loader,test_losses,test_acc)
-        # scheduler.step()
-        
-    logging.info('Training Losses : %s', train_losses)
-    logging.info('Training Acccuracy : %s', train_acc)
-    logging.info('Test Losses : %s', test_losses)
-    logging.info('Test Accuracy : %s', test_acc)
-        
-    return train_losses, test_losses, train_acc, test_acc
+    model = CustomResnetModule(max_lr,
+                               learning_rate,
+                               weight_decay,
+                               steps_per_epoch=len(train_loader),
+                               pct_start=5/max_epochs,
+                               epochs=max_epochs)
+    data_module = CIFARDataModule(train_loader,test_loader)
+    trainer = Trainer(
+        max_epochs=max_epochs,
+        accelerator=accelerator,
+        devices=1 if torch.cuda.is_available() else None,  # limiting got iPython runs
+        logger=[tb_logger, csv_logger],
+        callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=refresh_rate)],
+    )
+    trainer.fit(model,data_module)
+    return trainer
 
-def get_device():
-    cuda = torch.cuda.is_available()
-    device = torch.device("cuda" if cuda else "cpu")
-    logger.info("device: %s" % device)
-    return device
+def evaluate_performace(csv_log_file_path):
+    metrics = pd.read_csv(csv_log_file_path)
+    del metrics["step"]
+    metrics.set_index("epoch", inplace=True)
+    display(metrics.dropna(axis=1, how="all").head())
+    sn.relplot(data=metrics, kind="line")
+    
+def save_checkpoints(path="/content/tf_logs/lightning_logs/"):
+  versions = os.listdir(path)
+  versionid = []
+  for i in versions:
+    versionid.append(int(i.replace("version_","")))
 
+  best_weight_folder = os.path.join(path,f"version_{max(versionid)}","checkpoints")
+  weights = os.listdir(best_weight_folder)[0]
+
+  weights_path = os.path.join(best_weight_folder,weights)
+
+  print(weights_path)
+  device = torch.device("cpu")
+  # trainer.save_checkpoint("best.ckpt")
+  best_model = torch.load(weights_path)
+  torch.save(best_model['state_dict'], f'best_model.pth')
+  litemodel = CustomResnet()
+  litemodel.load_state_dict(torch.load("best_model.pth",map_location='cpu'))
+  device = "cpu"
+  return litemodel,"best_model.pth"

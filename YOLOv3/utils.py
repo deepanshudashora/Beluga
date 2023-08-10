@@ -5,10 +5,30 @@ import numpy as np
 import os
 import random
 import torch
-
+from torch_lr_finder import LRFinder
 from collections import Counter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+
+def criterion(out, y,loss_fn,scaled_anchors):
+    y0, y1, y2 = (
+            y[0].to(config.DEVICE),
+            y[1].to(config.DEVICE),
+            y[2].to(config.DEVICE),
+        )
+    loss = (
+                loss_fn(out[0], y0, scaled_anchors[0])
+                + loss_fn(out[1], y1, scaled_anchors[1])
+                + loss_fn(out[2], y2, scaled_anchors[2])
+            )
+    return loss
+
+def find_max_lr(model,optimizer,criterion,train_loader,end_lr):
+    lr_finder = LRFinder(model, optimizer, criterion, device="cuda")
+    lr_finder.range_test(train_loader, end_lr=end_lr, num_iter=200, step_mode="exp")
+    lr_finder.plot() # to inspect the loss-learning rate graph
+    lr_finder.reset() # to reset the model and optimizer to their initial state
 
 
 def iou_width_height(boxes1, boxes2):
@@ -496,7 +516,7 @@ def get_loaders(train_csv_path, test_csv_path):
         drop_last=False,
     )
 
-    return train_loader, test_loader, train_eval_loader
+    return train_loader, test_loader, train_eval_loader,test_dataset
 
 def plot_couple_examples(model, loader, thresh, iou_thresh, anchors):
     model.eval()

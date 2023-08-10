@@ -104,7 +104,11 @@ class YOLODataset(Dataset):
 
     def __getitem__(self, index):
 
-        image, bboxes = self.load_mosaic(index)
+        #image, bboxes = self.load_mosaic(index)
+        if random.random() < 0.75:
+            image, bboxes = self.load_mosaic(index)
+        else:
+            image, bboxes = self.load_single_image(index)
 
         if self.transform:
             augmentations = self.transform(image=image, bboxes=bboxes)
