@@ -1,11 +1,25 @@
 import albumentations as A
 import cv2
 import torch
+import random
+import numpy as np
+import os 
+from albumentations.pytorch import ToTensorV2
+def seed_everything(seed=42):
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 
 from albumentations.pytorch import ToTensorV2
-from utils import seed_everything
 
-DATASET = '/kaggle/input/pascal-voc-dataset-used-in-yolov3-video/PASCAL_VOC'
+
+DATASET = '/home/deepanshu/Desktop/yolofromscratch/PASCAL_VOC'
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # seed_everything()  # If you want deterministic behavior
 NUM_WORKERS = 0

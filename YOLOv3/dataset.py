@@ -7,7 +7,7 @@ import numpy as np
 import os
 import pandas as pd
 import torch
-from utils import xywhn2xyxy, xyxy2xywhn
+from custom_models.YOLOv3.utils import xywhn2xyxy, xyxy2xywhn
 import random 
 import pytorch_lightning
 from PIL import Image, ImageFile
