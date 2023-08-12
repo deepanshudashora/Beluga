@@ -508,7 +508,7 @@ def get_loaders(train_csv_path, test_csv_path):
         drop_last=False,
     )
 
-    train_eval_dataset = YOLODataset(
+    train_eval_dataset = YOLOTestDataset(
         train_csv_path,
         transform=config.test_transforms,
         S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
