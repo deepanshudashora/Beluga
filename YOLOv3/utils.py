@@ -1,4 +1,4 @@
-import custom_models.YOLOv3.config_sample as config
+import config
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
