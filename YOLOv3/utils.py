@@ -470,10 +470,10 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
 
 
 def get_loaders(train_csv_path, test_csv_path):
-    from custom_models.YOLOv3.dataset import YOLODataset
+    from custom_models.YOLOv3.dataset import YOLOTrainDataset
 
     IMAGE_SIZE = config.IMAGE_SIZE
-    train_dataset = YOLODataset(
+    train_dataset = YOLOTrainDataset(
         train_csv_path,
         transform=config.train_transforms,
         S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
@@ -481,7 +481,9 @@ def get_loaders(train_csv_path, test_csv_path):
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
     )
-    test_dataset = YOLODataset(
+    
+    from custom_models.YOLOv3.dataset import YOLOTestDataset
+    test_dataset = YOLOTestDataset(
         test_csv_path,
         transform=config.test_transforms,
         S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
