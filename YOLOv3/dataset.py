@@ -102,29 +102,18 @@ class YOLOTrainDataset(Dataset):
         labels4 = labels4[labels4[:, 3] > 0]
         return img4, labels4 
     
-    def load_single_image(self, index):
-        # Load a single image without applying mosaic transformation
-        label_path = os.path.join(self.label_dir, self.annotations.iloc[index, 1])
-        bboxes = np.roll(np.loadtxt(fname=label_path, delimiter=" ", ndmin=2), 4, axis=1).tolist()
-        img_path = os.path.join(self.img_dir, self.annotations.iloc[index, 0])
-        img = np.array(Image.open(img_path).convert("RGB"))
-
-        h, w = img.shape[0], img.shape[1]
-        labels = np.array(bboxes)
-
-        # Labels
-        if labels.size:
-            labels[:, :-1] = xywhn2xyxy(labels[:, :-1], w, h, 0, 0)  # normalized xywh to pixel xyxy format
-
-        return img, labels
-    
     def __getitem__(self, index):
 
         #image, bboxes = self.load_mosaic(index)
         if random.random() < 0.6:
             image, bboxes = self.load_mosaic(index)
         else:
-            image, bboxes = self.load_single_image(index)
+            label_path = os.path.join(self.label_dir, self.annotations.iloc[index, 1])
+            bboxes = np.roll(
+                np.loadtxt(fname=label_path, delimiter=" ", ndmin=2), 4, axis=1
+            ).tolist()
+            img_path = os.path.join(self.img_dir, self.annotations.iloc[index, 0])
+            image = np.array(Image.open(img_path).convert("RGB"))
 
         if self.transform:
             augmentations = self.transform(image=image, bboxes=bboxes)
