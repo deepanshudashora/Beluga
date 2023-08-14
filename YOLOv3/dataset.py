@@ -105,7 +105,7 @@ class YOLOTrainDataset(Dataset):
     def __getitem__(self, index):
 
         #image, bboxes = self.load_mosaic(index)
-        if random.random() < 0.6:
+        if random.random() < 0.5:
             image, bboxes = self.load_mosaic(index)
         else:
             label_path = os.path.join(self.label_dir, self.annotations.iloc[index, 1])

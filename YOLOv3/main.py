@@ -133,6 +133,14 @@ class YOLOTraining(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         self.evaluate(batch, "val")
+        
+    def on_epoch_end(self):
+        # Get train and validation losses from the trainer and epoch_logs
+        train_loss = self.trainer.callback_metrics["train_loss"]
+        val_loss = self.trainer.callback_metrics["val_loss"]
+
+        # Print train and validation losses
+        print(f"Epoch {self.current_epoch}: Train Loss = {train_loss:.4f}, Val Loss = {val_loss:.4f}")
 
     def test_step(self, batch, batch_idx):
         self.evaluate(batch, "test")
