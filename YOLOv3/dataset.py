@@ -9,7 +9,7 @@ import pandas as pd
 import torch
 from custom_models.YOLOv3.utils import xywhn2xyxy, xyxy2xywhn
 import random 
-import pytorch_lightning
+import lightning.pytorch
 from PIL import Image, ImageFile
 from torch.utils.data import Dataset, DataLoader
 from custom_models.YOLOv3.utils import (
@@ -257,7 +257,7 @@ def test():
         plot_image(x[0].permute(1, 2, 0).to("cpu"), boxes)
         
 
-class YOLODataModule(pytorch_lightning.LightningDataModule):
+class YOLODataModule(lightning.pytorch.LightningDataModule):
     def __init__(self,train_loader,test_loader,val_loader):
         super().__init__()
         self.train_loader = train_loader

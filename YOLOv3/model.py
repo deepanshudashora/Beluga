@@ -4,10 +4,7 @@ Implementation of YOLOv3 architecture
 
 import torch
 import torch.nn as nn
-from pytorch_lightning import LightningModule, Trainer, seed_everything
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from pytorch_lightning.loggers import CSVLogger
+from lightning.pytorch import LightningModule
 """ 
 Information about architecture config:
 Tuple is structured by (filters, kernel_size, stride) 
@@ -167,13 +164,13 @@ class YOLOv3(LightningModule):
         return layers
 
 
-if __name__ == "__main__":
-    num_classes = 20
-    IMAGE_SIZE = 416
-    model = YOLOv3(num_classes=num_classes)
-    x = torch.randn((2, 3, IMAGE_SIZE, IMAGE_SIZE))
-    out = model(x)
-    assert model(x)[0].shape == (2, 3, IMAGE_SIZE//32, IMAGE_SIZE//32, num_classes + 5)
-    assert model(x)[1].shape == (2, 3, IMAGE_SIZE//16, IMAGE_SIZE//16, num_classes + 5)
-    assert model(x)[2].shape == (2, 3, IMAGE_SIZE//8, IMAGE_SIZE//8, num_classes + 5)
-    print("Success!")
+# if __name__ == "__main__":
+#     num_classes = 20
+#     IMAGE_SIZE = 416
+#     model = YOLOv3(num_classes=num_classes)
+#     x = torch.randn((2, 3, IMAGE_SIZE, IMAGE_SIZE))
+#     out = model(x)
+#     assert model(x)[0].shape == (2, 3, IMAGE_SIZE//32, IMAGE_SIZE//32, num_classes + 5)
+#     assert model(x)[1].shape == (2, 3, IMAGE_SIZE//16, IMAGE_SIZE//16, num_classes + 5)
+#     assert model(x)[2].shape == (2, 3, IMAGE_SIZE//8, IMAGE_SIZE//8, num_classes + 5)
+#     print("Success!")
