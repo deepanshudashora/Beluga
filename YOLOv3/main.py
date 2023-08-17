@@ -176,7 +176,7 @@ class YOLOTraining(LightningModule):
       return {"optimizer": optimizer, "lr_scheduler": scheduler_dict}
   
 def make_trainer(max_epochs,train_loader, test_loader, train_eval_loader,max_lr,
-                 learning_rate,weight_decay,check_val_every_n_epoch,config,precision=16,
+                 learning_rate,weight_decay,check_val_every_n_epoch,config,parellel_gpu=True,precision=16,
                  refresh_rate=10,accelerator="auto",
                  tensorboard_logs = "tf_logs/",
                  csv_logs = "csv_training_logs/"
@@ -187,16 +187,26 @@ def make_trainer(max_epochs,train_loader, test_loader, train_eval_loader,max_lr,
     model = YOLOv3(num_classes=config.NUM_CLASSES)
     model = YOLOTraining(loss_fn,config,model,max_lr,train_loader,5/max_epochs)
     data_module = YOLODataModule(train_loader, test_loader, train_eval_loader)
-    from lightning.pytorch.strategies import DDPStrategy 
-    trainer = Trainer(
-        max_epochs=max_epochs,
-        accelerator="gpu", 
-        devices=2, 
-        strategy="ddp_notebook_find_unused_parameters_true",
-        logger=[tb_logger, csv_logger],
-        precision=16,
-        callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=10)],
-        check_val_every_n_epoch=check_val_every_n_epoch
-    )
+    if parellel_gpu:
+        from lightning.pytorch.strategies import DDPStrategy 
+        trainer = Trainer(
+            max_epochs=max_epochs,
+            accelerator="gpu", 
+            devices=2, 
+            strategy="ddp_notebook_find_unused_parameters_true",
+            logger=[tb_logger, csv_logger],
+            precision=precision,
+            callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=10)],
+            check_val_every_n_epoch=check_val_every_n_epoch
+        )
+    else:
+        trainer = Trainer(
+            max_epochs=max_epochs,
+            accelerator="gpu", 
+            logger=[tb_logger, csv_logger],
+            precision=precision,
+            callbacks=[LearningRateMonitor(logging_interval="step"), TQDMProgressBar(refresh_rate=10)],
+            check_val_every_n_epoch=check_val_every_n_epoch
+        )
     trainer.fit(model,data_module)
     return trainer
