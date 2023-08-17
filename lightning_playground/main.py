@@ -1,7 +1,7 @@
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from custom_models.dataset import CIFARDataModule
+from custom_models.torch_playground.dataset import CIFARDataModule
 from custom_models.lightning_playground.modules.custom_resnet import CustomResnetModule
 from pytorch_lightning.loggers import CSVLogger
 from custom_models.custom_resnet import CustomResnet
