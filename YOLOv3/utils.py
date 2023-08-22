@@ -508,13 +508,12 @@ def get_loaders(train_csv_path, test_csv_path):
 
     train_eval_dataset = YOLODataset(
         train_csv_path,
-        mosaic_probability = 0.0,
         transform=config.test_transforms,
         S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
-        collate_fn=train_dataset.collate_fn
+        mosaic_prob = 0.0
     )
     train_eval_loader = DataLoader(
         dataset=train_eval_dataset,
