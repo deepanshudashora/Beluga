@@ -469,7 +469,6 @@ def get_loaders(train_csv_path, test_csv_path):
     IMAGE_SIZE = config.IMAGE_SIZE
     train_dataset = YOLODataset(
         train_csv_path,
-        mosaic_probability = 0.6,
         transform=config.train_transforms,
         S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
         img_dir=config.IMG_DIR,
@@ -480,7 +479,6 @@ def get_loaders(train_csv_path, test_csv_path):
     
     test_dataset = YOLODataset(
         test_csv_path,
-        mosaic_probability = 0.0,
         transform=config.test_transforms,
         S=[IMAGE_SIZE // 32, IMAGE_SIZE // 16, IMAGE_SIZE // 8],
         img_dir=config.IMG_DIR,
