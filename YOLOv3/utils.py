@@ -475,6 +475,7 @@ def get_loaders(train_csv_path, test_csv_path):
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
+        mosaic_prob = 0.7,
     )
     
     test_dataset = YOLODataset(
@@ -485,6 +486,7 @@ def get_loaders(train_csv_path, test_csv_path):
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
+        mosaic_prob = 0.0,
     )
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -493,6 +495,7 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=True,
         drop_last=False,
+        collate_fn=train_dataset.collate_fn4
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -501,6 +504,8 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=False,
         drop_last=False,
+        collate_fn=train_dataset.collate_fn
+
     )
 
     train_eval_dataset = YOLODataset(
@@ -511,6 +516,7 @@ def get_loaders(train_csv_path, test_csv_path):
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
+        collate_fn=train_dataset.collate_fn
     )
     train_eval_loader = DataLoader(
         dataset=train_eval_dataset,
@@ -519,6 +525,7 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=False,
         drop_last=False,
+        collate_fn=train_dataset.collate_fn
     )
 
     return train_loader, test_loader, train_eval_loader,test_dataset
