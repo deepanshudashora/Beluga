@@ -5,10 +5,30 @@ import numpy as np
 import os
 import random
 import torch
-
+from torch_lr_finder import LRFinder
 from collections import Counter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+
+def criterion(out, y,loss_fn,scaled_anchors):
+    y0, y1, y2 = (
+            y[0].to(config.DEVICE),
+            y[1].to(config.DEVICE),
+            y[2].to(config.DEVICE),
+        )
+    loss = (
+                loss_fn(out[0], y0, scaled_anchors[0])
+                + loss_fn(out[1], y1, scaled_anchors[1])
+                + loss_fn(out[2], y2, scaled_anchors[2])
+            )
+    return loss
+
+def find_max_lr(model,optimizer,criterion,train_loader,end_lr):
+    lr_finder = LRFinder(model, optimizer, criterion, device="cuda")
+    lr_finder.range_test(train_loader, end_lr=end_lr, num_iter=200, step_mode="exp")
+    lr_finder.plot() # to inspect the loss-learning rate graph
+    lr_finder.reset() # to reset the model and optimizer to their initial state
 
 
 def iou_width_height(boxes1, boxes2):
@@ -403,6 +423,7 @@ def check_class_accuracy(model, loader, threshold):
     print(f"Class accuracy is: {(correct_class/(tot_class_preds+1e-16))*100:2f}%")
     print(f"No obj accuracy is: {(correct_noobj/(tot_noobj+1e-16))*100:2f}%")
     print(f"Obj accuracy is: {(correct_obj/(tot_obj+1e-16))*100:2f}%")
+
     model.train()
 
 
@@ -443,7 +464,7 @@ def load_checkpoint(checkpoint_file, model, optimizer, lr):
 
 
 def get_loaders(train_csv_path, test_csv_path):
-    from dataset import YOLODataset
+    from custom_models.YOLOv3.dataset import YOLODataset
 
     IMAGE_SIZE = config.IMAGE_SIZE
     train_dataset = YOLODataset(
@@ -453,8 +474,9 @@ def get_loaders(train_csv_path, test_csv_path):
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
-        mosaic_probability=0.6
+        mosaic_prob = 0.7,
     )
+    
     test_dataset = YOLODataset(
         test_csv_path,
         transform=config.test_transforms,
@@ -462,7 +484,7 @@ def get_loaders(train_csv_path, test_csv_path):
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
-        mosaic_probability=0.0
+        mosaic_prob = 0.0,
     )
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -471,6 +493,7 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=True,
         drop_last=False,
+        collate_fn=train_dataset.collate_fn4
     )
     test_loader = DataLoader(
         dataset=test_dataset,
@@ -479,6 +502,8 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=False,
         drop_last=False,
+        collate_fn=train_dataset.collate_fn
+
     )
 
     train_eval_dataset = YOLODataset(
@@ -488,7 +513,7 @@ def get_loaders(train_csv_path, test_csv_path):
         img_dir=config.IMG_DIR,
         label_dir=config.LABEL_DIR,
         anchors=config.ANCHORS,
-        mosaic_probability=0.0
+        mosaic_prob = 0.0
     )
     train_eval_loader = DataLoader(
         dataset=train_eval_dataset,
@@ -497,9 +522,10 @@ def get_loaders(train_csv_path, test_csv_path):
         pin_memory=config.PIN_MEMORY,
         shuffle=False,
         drop_last=False,
+        collate_fn=train_dataset.collate_fn
     )
 
-    return train_loader, test_loader, train_eval_loader,test_loader
+    return train_loader, test_loader, train_eval_loader,test_dataset
 
 def plot_couple_examples(model, loader, thresh, iou_thresh, anchors):
     model.eval()

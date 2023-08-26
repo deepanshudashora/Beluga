@@ -1,25 +1,27 @@
-"""
-Creates a Pytorch dataset to load the Pascal VOC & MS COCO datasets
-"""
-
-import config
-import numpy as np
 import os
+import random
+from typing import Any, List, Tuple
+
+import numpy as np
 import pandas as pd
 import torch
-from custom_models.YOLOv3.utils import xywhn2xyxy, xyxy2xywhn
-import random 
-import lightning.pytorch
+import torch.nn.functional as F
 from PIL import Image, ImageFile
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
+
 from custom_models.YOLOv3.utils import (
     cells_to_bboxes,
     iou_width_height as iou,
     non_max_suppression as nms,
-    plot_image
+    plot_image,
+    xywhn2xyxy,
+    xyxy2xywhn
 )
 
+
+
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 
 class YOLODataset(Dataset):
     def __init__(
@@ -28,11 +30,12 @@ class YOLODataset(Dataset):
         img_dir,
         label_dir,
         anchors,
-        mosaic_probability=0.5,
-        image_size=416,
+        mosaic_prob = 0.7,
+        image_size = 416,
         S=[13, 26, 52],
         C=20,
         transform=None,
+
     ):
         self.annotations = pd.read_csv(csv_file)
         self.img_dir = img_dir
@@ -40,40 +43,53 @@ class YOLODataset(Dataset):
         self.image_size = image_size
         self.mosaic_border = [image_size // 2, image_size // 2]
         self.transform = transform
-        self.mosaic_probability = mosaic_probability
-        self.S = S
         self.anchors = torch.tensor(anchors[0] + anchors[1] + anchors[2])  # for all 3 scales
         self.num_anchors = self.anchors.shape[0]
         self.num_anchors_per_scale = self.num_anchors // 3
-        self.C = C
         self.ignore_iou_thresh = 0.5
+        self.mosaic_prob = mosaic_prob
 
     def __len__(self):
         return len(self.annotations)
-    
-    def load_mosaic(self, index):
+
+    def load_mosaic(self, index: int) -> np.ndarray:
         # YOLOv5 4-mosaic loader. Loads 1 image + 3 random images into a 4-image mosaic
         labels4 = []
         s = self.image_size
-        yc, xc = (int(random.uniform(x, 2 * s - x)) for x in self.mosaic_border)  # mosaic center x, y
+        yc, xc = (
+            int(random.uniform(x, 2 * s - x)) for x in self.mosaic_border
+        )  # mosaic center x, y
         indices = [index] + random.choices(range(len(self)), k=3)  # 3 additional image indices
         random.shuffle(indices)
         for i, index in enumerate(indices):
             # Load image
             label_path = os.path.join(self.label_dir, self.annotations.iloc[index, 1])
-            bboxes = np.roll(np.loadtxt(fname=label_path, delimiter=" ", ndmin=2), 4, axis=1).tolist()
+            bboxes = np.roll(
+                np.loadtxt(fname=label_path, delimiter=" ", ndmin=2), 4, axis=1
+            ).tolist()
             img_path = os.path.join(self.img_dir, self.annotations.iloc[index, 0])
             img = np.array(Image.open(img_path).convert("RGB"))
-            
 
             h, w = img.shape[0], img.shape[1]
             labels = np.array(bboxes)
 
             # place img in img4
             if i == 0:  # top left
-                img4 = np.full((s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
-                x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
-                x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
+                img4 = np.full(
+                    (s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8
+                )  # base image with 4 tiles
+                x1a, y1a, x2a, y2a = (
+                    max(xc - w, 0),
+                    max(yc - h, 0),
+                    xc,
+                    yc,
+                )  # xmin, ymin, xmax, ymax (large image)
+                x1b, y1b, x2b, y2b = (
+                    w - (x2a - x1a),
+                    h - (y2a - y1a),
+                    w,
+                    h,
+                )  # xmin, ymin, xmax, ymax (small image)
             elif i == 1:  # top right
                 x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, s * 2), yc
                 x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
@@ -90,7 +106,9 @@ class YOLODataset(Dataset):
 
             # Labels
             if labels.size:
-                labels[:, :-1] = xywhn2xyxy(labels[:, :-1], w, h, padw, padh)  # normalized xywh to pixel xyxy format
+                labels[:, :-1] = xywhn2xyxy(
+                    labels[:, :-1], w, h, padw, padh
+                )  # normalized xywh to pixel xyxy format
             labels4.append(labels)
 
         # Concat/clip labels
@@ -102,12 +120,10 @@ class YOLODataset(Dataset):
         labels4[:, :-1] = np.clip(labels4[:, :-1], 0, 1)
         labels4 = labels4[labels4[:, 2] > 0]
         labels4 = labels4[labels4[:, 3] > 0]
-        return img4, labels4 
-    
-    def __getitem__(self, index):
+        return img4, labels4
 
-        #image, bboxes = self.load_mosaic(index)
-        if random.random() < self.mosaic_probability:
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, tuple]:
+        if random.random() < self.mosaic_prob:
             image, bboxes = self.load_mosaic(index)
         else:
             label_path = os.path.join(self.label_dir, self.annotations.iloc[index, 1])
@@ -122,8 +138,11 @@ class YOLODataset(Dataset):
             image = augmentations["image"]
             bboxes = augmentations["bboxes"]
 
+        return image, bboxes
+
+    def make_targets(self, bboxes: List[List], scales: List[int]) -> List[torch.Tensor]:
         # Below assumes 3 scale predictions (as paper) and same num of anchors per scale
-        targets = [torch.zeros((self.num_anchors // 3, S, S, 6)) for S in self.S]
+        target = [torch.zeros((self.num_anchors // 3, S, S, 6)) for S in scales]
         for box in bboxes:
             iou_anchors = iou(torch.tensor(box[2:4]), self.anchors)
             anchor_indices = iou_anchors.argsort(descending=True, dim=0)
@@ -132,62 +151,80 @@ class YOLODataset(Dataset):
             for anchor_idx in anchor_indices:
                 scale_idx = anchor_idx // self.num_anchors_per_scale
                 anchor_on_scale = anchor_idx % self.num_anchors_per_scale
-                S = self.S[scale_idx]
+                S = scales[scale_idx]
                 i, j = int(S * y), int(S * x)  # which cell
-                anchor_taken = targets[scale_idx][anchor_on_scale, i, j, 0]
+                anchor_taken = target[scale_idx][anchor_on_scale, i, j, 0]
                 if not anchor_taken and not has_anchor[scale_idx]:
-                    targets[scale_idx][anchor_on_scale, i, j, 0] = 1
+                    target[scale_idx][anchor_on_scale, i, j, 0] = 1
                     x_cell, y_cell = S * x - j, S * y - i  # both between [0,1]
                     width_cell, height_cell = (
                         width * S,
                         height * S,
                     )  # can be greater than 1 since it's relative to cell
-                    box_coordinates = torch.tensor(
-                        [x_cell, y_cell, width_cell, height_cell]
-                    )
-                    targets[scale_idx][anchor_on_scale, i, j, 1:5] = box_coordinates
-                    targets[scale_idx][anchor_on_scale, i, j, 5] = int(class_label)
+                    box_coordinates = torch.tensor([x_cell, y_cell, width_cell, height_cell])
+                    target[scale_idx][anchor_on_scale, i, j, 1:5] = box_coordinates
+                    target[scale_idx][anchor_on_scale, i, j, 5] = int(class_label)
                     has_anchor[scale_idx] = True
 
                 elif not anchor_taken and iou_anchors[anchor_idx] > self.ignore_iou_thresh:
-                    targets[scale_idx][anchor_on_scale, i, j, 0] = -1  # ignore prediction
+                    target[scale_idx][anchor_on_scale, i, j, 0] = -1  # ignore prediction
 
-        return image, tuple(targets)
+        return target
+
+    def collate_fn(self, batch: Any) -> Tuple[torch.Tensor, Any]:
+        image, bboxes = zip(*batch)
+        image = torch.stack(image, 0)
+
+        imgsz = image.shape[-1]
+        scales = [imgsz // 32, imgsz // 16, imgsz // 8]
+        targets_1 = []
+        targets_2 = []
+        targets_3 = []
+        for box in bboxes:
+            target1, target2, target3 = self.make_targets(box, scales)
+            targets_1.append(target1)
+            targets_2.append(target2)
+            targets_3.append(target3)
+
+        targets_1 = torch.stack(targets_1, 0)
+        targets_2 = torch.stack(targets_2, 0)
+        targets_3 = torch.stack(targets_3, 0)
+
+        return image, [targets_1, targets_2, targets_3]
+
+    def collate_fn4(self, batch: Any) -> Tuple[torch.Tensor, Any]:
+        image, bboxes = zip(*batch)
+
+        if random.random() > 0.2:
+            size = random.choice([352, 384, 480, 832])
+            resized_imzs = []
+            for img in image:
+                resized_im = F.interpolate(
+                    img.unsqueeze(0), size=(size, size), mode="bilinear", align_corners=False
+                )
+                resized_imzs.append(resized_im)
+            image = torch.stack(resized_imzs, 0)
+        else:
+            image = torch.stack(image, 0)
+
+        imgsz = image.shape[-1]
+        scales = [imgsz // 32, imgsz // 16, imgsz // 8]
+        targets_1 = []
+        targets_2 = []
+        targets_3 = []
+        for box in bboxes:
+            target1, target2, target3 = self.make_targets(box, scales)
+            targets_1.append(target1)
+            targets_2.append(target2)
+            targets_3.append(target3)
+
+        targets_1 = torch.stack(targets_1, 0)
+        targets_2 = torch.stack(targets_2, 0)
+        targets_3 = torch.stack(targets_3, 0)
+
+        return image, [targets_1, targets_2, targets_3]
     
-
-def test():
-    anchors = config.ANCHORS
-
-    transform = config.test_transforms
-
-    dataset = YOLODataset(
-        "COCO/train.csv",
-        "COCO/images/images/",
-        "COCO/labels/labels_new/",
-        S=[13, 26, 52],
-        anchors=anchors,
-        transform=transform,
-    )
-    S = [13, 26, 52]
-    scaled_anchors = torch.tensor(anchors) / (
-        1 / torch.tensor(S).unsqueeze(1).unsqueeze(1).repeat(1, 3, 2)
-    )
-    loader = DataLoader(dataset=dataset, batch_size=1, shuffle=True)
-    for x, y in loader:
-        boxes = []
-
-        for i in range(y[0].shape[1]):
-            anchor = scaled_anchors[i]
-            print(anchor.shape)
-            print(y[i].shape)
-            boxes += cells_to_bboxes(
-                y[i], is_preds=False, S=y[i].shape[2], anchors=anchor
-            )[0]
-        boxes = nms(boxes, iou_threshold=1, threshold=0.7, box_format="midpoint")
-        print(boxes)
-        plot_image(x[0].permute(1, 2, 0).to("cpu"), boxes)
-        
-
+import lightning
 class YOLODataModule(lightning.pytorch.LightningDataModule):
     def __init__(self,train_loader,test_loader,val_loader):
         super().__init__()
@@ -202,7 +239,3 @@ class YOLODataModule(lightning.pytorch.LightningDataModule):
     
     def test_dataloader(self):
         return self.val_loader
-
-
-if __name__ == "__main__":
-    test()
