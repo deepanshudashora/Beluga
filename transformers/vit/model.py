@@ -6,13 +6,7 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 from torch import nn
 from torchvision import transforms
 
-# Try to get torchinfo, install it if it doesn't work
-try:
-    from torchinfo import summary
-except:
-    print("[INFO] Couldn't find torchinfo... installing it.")
-    !pip install -q torchinfo
-    from torchinfo import summary
+
 
 #################################################################################################################################################
 #################################################################################################################################################

@@ -13,8 +13,8 @@ import torch
 import math
 import re
 
-from vit.model import PatchEmbedding
-from vit.model import TransformerEncoderBlock
+from custom_models.transformers.vit.model import PatchEmbedding
+from custom_models.transformers.vit.model import TransformerEncoderBlock
 # =============================================================================
 # Transformer
 # =============================================================================
