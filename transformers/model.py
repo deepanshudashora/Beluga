@@ -357,7 +357,7 @@ class Transformer(nn.Module):
                 loss = None
             return logits, loss
         
-        elif self.algorithm == "GPT":
+        elif self.algorithm == "VIT":
             # 12. Get batch size
             batch_size = x.shape[0]
             
